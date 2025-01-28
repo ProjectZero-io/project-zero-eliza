@@ -11,7 +11,7 @@
     "stop:service:all": "pm2 stop all"
   },
   "dependencies": {
-    "@elizaos/adapter-postgres": "0.1.7",
+    "@elizaos/adapter-postgres": "0.1.8",
     "@elizaos/adapter-sqlite": "0.1.7",
     "@elizaos/client-auto": "0.1.7",
     "@elizaos/client-direct": "0.1.7",
@@ -27,6 +27,8 @@
     "@tavily/core": "0.0.2",
     "amqplib": "0.10.5",
     "better-sqlite3": "11.5.0",
+    "body-parser": "^1.20.3",
+    "express": "^4.21.2",
     "fs": "0.0.1-security",
     "net": "1.0.2",
     "path": "0.12.7",
@@ -44,6 +46,7 @@
     }
   },
   "devDependencies": {
+    "@types/ws": "^8.5.14",
     "ts-node": "10.9.2",
     "tsup": "8.3.5",
     "typescript": "5.6.3"
