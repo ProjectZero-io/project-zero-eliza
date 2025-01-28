@@ -8,9 +8,6 @@ import {PairCreation, PoolCreation, SwapV2, SwapV3, UniswapBlockData} from "../i
 const WEBHOOK_SERVICE = 'WEBHOOK_SERVICE' as ServiceType;
 const PORT = 3030;
 
-const SYSTEM_USER_ID = stringToUuid('system-user');
-const MONITOR_ROOM_ID = stringToUuid('uniswap-monitor');
-
 export class UniswapWebhookService extends Service {
 	private app: express.Application;
 	private runtime: IAgentRuntime;
