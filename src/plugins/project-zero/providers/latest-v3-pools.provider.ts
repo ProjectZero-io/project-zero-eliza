@@ -1,43 +1,36 @@
-import type { IAgentRuntime, Memory, Provider, State } from "@elizaos/core";
-import { PostgresDatabaseAdapter } from "@elizaos/adapter-postgres";
+import {IAgentRuntime, Memory, Provider, State, stringToUuid} from "@elizaos/core";
+import {PoolCreation} from "../interfaces/uniswap.interfaces.ts";
 
 export const latestUniswapV3PoolsProvider: Provider = {
 	get: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
 		try {
-			const db = runtime.databaseAdapter as PostgresDatabaseAdapter;
+			const memories = await runtime.messageManager.getMemories({
+				roomId: stringToUuid('uniswap-v3-room'),
+				count: 5,
+				unique: true
+			});
 
-			// Query to get latest Uniswap V3 pools
-			const result = await db.query(`
-                SELECT 
-                    address,
-                    token0,
-                    token1,
-                    fee,
-                    tick_spacing,
-                    block_number,
-                    block_timestamp,
-                    transaction_hash
-                FROM uniswap_v3_pools
-                ORDER BY block_timestamp DESC
-                LIMIT 5;
-            `);
-
-			if (result.rows.length === 0) {
-				return "No Uniswap V3 pools found in the database.";
+			if (memories.length === 0) {
+				return "No recent Uniswap V3 pools found at this time.";
 			}
 
-			// Format the results into a readable string
-			const formattedPools = result.rows.map(pool => `
-📍 Pool Address: ${pool.address}
+			const pools = memories
+				.map(memory => {
+					const pool = memory.content.poolData as PoolCreation;
+
+					return `
+📍 Pool Address: ${pool.pool}
 🔄 Tokens: ${pool.token0} / ${pool.token1}
 💰 Fee Tier: ${pool.fee / 10000}% (${pool.fee} bps)
-📊 Tick Spacing: ${pool.tick_spacing}
-🔢 Block: ${pool.block_number}
-⏰ Created: ${new Date(pool.block_timestamp).toLocaleString()}
-🔗 Tx: ${pool.transaction_hash}
-            `.trim()).join('\n\n');
+📊 Tick Spacing: ${pool.tickSpacing}
+🔢 Block: ${pool.blockNumber}
+🔗 Tx: ${pool.transactionHash}
+⏰ Created: ${new Date(pool.blockTimestamp).toLocaleString()}
+					`.trim();
+				})
+				.join('\n\n');
 
-			return `Latest Uniswap V3 Pools:\n\n${formattedPools}`;
+			return `Latest Uniswap V3 Pools: ${pools}`;
 		} catch (error) {
 			console.error("Latest Uniswap V3 pools provider error:", error);
 			return "Unable to fetch Uniswap V3 pools at this time.";

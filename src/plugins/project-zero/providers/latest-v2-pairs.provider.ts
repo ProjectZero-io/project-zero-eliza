@@ -1,38 +1,35 @@
-import type { IAgentRuntime, Memory, Provider, State } from "@elizaos/core";
-import { PostgresDatabaseAdapter } from "@elizaos/adapter-postgres";
+import {IAgentRuntime, Memory, Provider, State, stringToUuid} from "@elizaos/core";
+import {PairCreation} from "../interfaces/uniswap.interfaces.ts";
 
 export const latestUniswapV2PairsProvider: Provider = {
 	get: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
 		try {
-			const db = runtime.databaseAdapter as PostgresDatabaseAdapter;
+			const memories = await runtime.messageManager.getMemories({
+				roomId: stringToUuid('uniswap-v2-room'),
+				count: 5,
+				unique: true
+			});
 
-			const result = await db.query(`
-                SELECT 
-                    address,
-                    token0,
-                    token1,
-                    block_number,
-                    block_timestamp,
-                    transaction_hash
-                FROM uniswap_v2_pairs
-                ORDER BY block_timestamp DESC
-                LIMIT 5;
-            `);
-
-			if (result.rows.length === 0) {
-				return "No Uniswap V2 pairs found in the database.";
+			if (memories.length === 0) {
+				return "No recent Uniswap V2 pairs found at this time.";
 			}
 
-			// Format the results into a readable string
-			const formattedPairs = result.rows.map(pair => `
-📍 Pair Address: ${pair.address}
-🔄 Tokens: ${pair.token0} / ${pair.token1}
-🔢 Block: ${pair.block_number}
-⏰ Created: ${new Date(pair.block_timestamp).toLocaleString()}
-🔗 Tx: ${pair.transaction_hash}
-            `.trim()).join('\n\n');
+			const pairs = memories
+				.map(memory => {
+					const pairData = memory.content.pairData as PairCreation;
 
-			return `Latest Uniswap V2 Pairs:\n\n${formattedPairs}`;
+					return `
+📍 Pair Address: ${pairData.pair}
+🔄 Tokens: ${pairData.token0} / ${pairData.token1}
+🔢 Block: ${pairData.blockNumber}
+⏰ Created: ${new Date(pairData.blockTimestamp).toLocaleString()}
+🔗 Tx: ${pairData.transactionHash}
+					`.trim();
+				})
+				.join('\n\n');
+
+			return `Latest Uniswap V2 Pairs: \n ${pairs}`;
+
 		} catch (error) {
 			console.error("Latest Uniswap V2 pairs provider error:", error);
 			return "Unable to fetch Uniswap V2 pairs at this time.";

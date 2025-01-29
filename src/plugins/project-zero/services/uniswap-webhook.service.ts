@@ -1,9 +1,7 @@
-import {elizaLogger, IAgentRuntime, Service, ServiceType, stringToUuid} from "@elizaos/core";
+import { elizaLogger, IAgentRuntime, Service, ServiceType, Memory, stringToUuid } from "@elizaos/core";
 import express from 'express';
 import bodyParser from 'body-parser';
-import {PostgresDatabaseAdapter} from "@elizaos/adapter-postgres";
-import net from 'net';
-import {PairCreation, PoolCreation, SwapV2, SwapV3, UniswapBlockData} from "../interfaces/uniswap.interfaces.ts";
+import { UniswapBlockData, PairCreation, PoolCreation } from "../interfaces/uniswap.interfaces";
 
 const WEBHOOK_SERVICE = 'WEBHOOK_SERVICE' as ServiceType;
 const PORT = 3030;
@@ -11,13 +9,12 @@ const PORT = 3030;
 export class UniswapWebhookService extends Service {
 	private app: express.Application;
 	private runtime: IAgentRuntime;
-	private server: net.Server | null = null;
+	private server: any = null;
 	private isInitialized = false;
 
 	constructor() {
 		super();
 		this.app = express();
-
 		this.app.use(bodyParser.json({
 			limit: '50mb',
 			verify: (req: any, res, buf) => {
@@ -37,30 +34,18 @@ export class UniswapWebhookService extends Service {
 		}
 
 		this.runtime = runtime;
-
 		this.setupRoutes();
-
 		await this.startServer();
-
-		this.isInitialized = true
-	}
-
-	public stop(): void {
-		if (this.server) {
-			this.server.close();
-			elizaLogger.info(`Stopped webhook service on port ${PORT}`);
-		}
+		this.isInitialized = true;
 	}
 
 	private setupRoutes() {
 		this.app.post('/webhook', async (req, res) => {
 			try {
 				const body: { data: UniswapBlockData[] } = req.body;
-
 				for (const blockData of body.data) {
 					await this.processBlockData(blockData);
 				}
-
 				res.status(200).send('ok');
 			} catch (error) {
 				elizaLogger.error('Error processing webhook', error);
@@ -71,6 +56,7 @@ export class UniswapWebhookService extends Service {
 			}
 		});
 
+		// Health check routes remain the same
 		this.app.get('/health', (req, res) => {
 			res.status(200).json({
 				status: 'healthy',
@@ -78,117 +64,73 @@ export class UniswapWebhookService extends Service {
 				port: PORT
 			});
 		});
-
-		this.app.post('/', (req, res) => {
-			res.status(200).json({
-				status: 'running',
-				service: 'Uniswap Webhook Service',
-				endpoints: ['/webhook', '/health']
-			});
-		});
 	}
 
 	private async processBlockData(blockData: UniswapBlockData): Promise<void> {
-		const db = this.runtime.databaseAdapter as PostgresDatabaseAdapter;
 		const processors = [];
 
-		if (blockData.uniswapV2.swaps.length > 0) {
-			processors.push(this.processV2Swaps(db, blockData.uniswapV2.swaps));
-		}
-
-		if (blockData.uniswapV3.swaps.length > 0) {
-			processors.push(this.processV3Swaps(db, blockData.uniswapV3.swaps));
-		}
-
 		if (blockData.uniswapV2.pairCreations.length > 0) {
-			processors.push(this.processPairCreations(db, blockData.uniswapV2.pairCreations));
+			processors.push(this.processPairCreations(blockData.uniswapV2.pairCreations));
 		}
 
 		if (blockData.uniswapV3.poolCreations.length > 0) {
-			processors.push(this.processPoolCreations(db, blockData.uniswapV3.poolCreations));
+			processors.push(this.processPoolCreations(blockData.uniswapV3.poolCreations));
 		}
 
 		await Promise.all(processors);
-
-		elizaLogger.info(`Processed block #${blockData.number}. V2 Pairs: ${blockData.uniswapV2.pairCreations.length}, V3 Pools: ${blockData.uniswapV3.poolCreations.length} V2 Swaps: ${blockData.uniswapV2.swaps.length}, V3 Swaps: ${blockData.uniswapV3.swaps.length}`);
 	}
 
-	private async processPairCreations(db: PostgresDatabaseAdapter, pairCreations: PairCreation[]): Promise<void> {
+	private async processPairCreations(pairCreations: PairCreation[]): Promise<void> {
 		for (const pair of pairCreations) {
-			await db.query(`
-				INSERT INTO uniswap_v2_pairs 
-				(address, token0, token1, block_number, block_timestamp, transaction_hash)
-				VALUES ($1, $2, $3, $4, $5, $6)
-			`, [
-				pair.pair,
-				pair.token0,
-				pair.token1,
-				pair.blockNumber,
-				new Date(pair.blockTimestamp * 1000).toISOString(),
-				pair.transactionHash
-			]);
+			const memory: Memory = {
+				id: stringToUuid(pair.transactionHash),
+				roomId: stringToUuid('uniswap-v2-room'),
+				userId: this.runtime.agentId,
+				agentId: this.runtime.agentId,
+				createdAt: Date.now(),
+				content: {
+					text: `New Uniswap V2 pair created: ${pair.pair}`,
+					source: 'uniswap-v2',
+					pairData: {
+						pair: pair.pair,
+						token0: pair.token0,
+						token1: pair.token1,
+						blockNumber: pair.blockNumber,
+						blockTimestamp: new Date(pair.blockTimestamp * 1000).toISOString(),
+						transactionHash: pair.transactionHash
+					}
+				}
+			};
+
+			await this.runtime.messageManager.createMemory(memory);
 		}
 	}
 
-	private async processPoolCreations(db: PostgresDatabaseAdapter, poolCreations: PoolCreation[]): Promise<void> {
+	private async processPoolCreations(poolCreations: PoolCreation[]): Promise<void> {
 		for (const pool of poolCreations) {
-			await db.query(`
-				INSERT INTO uniswap_v3_pools 
-				(address, token0, token1, fee, tick_spacing, block_number, block_timestamp, transaction_hash)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			`, [
-				pool.pool,
-				pool.token0,
-				pool.token1,
-				pool.fee,
-				pool.tickSpacing,
-				pool.blockNumber,
-				new Date(pool.blockTimestamp * 1000).toISOString(),
-				pool.transactionHash
-			]);
-		}
-	}
+			const memory: Memory = {
+				id: stringToUuid(pool.transactionHash),
+				roomId: stringToUuid('uniswap-v3-room'),
+				userId: this.runtime.agentId,
+				agentId: this.runtime.agentId,
+				createdAt: Date.now(),
+				content: {
+					text: `New Uniswap V3 pool created: ${pool.pool}`,
+					source: 'uniswap-v3',
+					poolData: {
+						pool: pool.pool,
+						token0: pool.token0,
+						token1: pool.token1,
+						fee: pool.fee,
+						tickSpacing: pool.tickSpacing,
+						blockNumber: pool.blockNumber,
+						timestamp: new Date(pool.blockTimestamp * 1000).toISOString(),
+						transactionHash: pool.transactionHash
+					}
+				}
+			};
 
-	private async processV2Swaps(db: PostgresDatabaseAdapter, swaps: SwapV2[]): Promise<void> {
-		for (const swap of swaps) {
-			await db.query(`
-				INSERT INTO uniswap_v2_swaps 
-				(pair, sender, "to", amount0_in, amount1_in, amount0_out, amount1_out, block_number, block_timestamp, transaction_hash)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-			`, [
-				swap.pair,
-				swap.sender,
-				swap.to,
-				swap.amount0In,
-				swap.amount1In,
-				swap.amount0Out,
-				swap.amount1Out,
-				swap.blockNumber,
-				new Date(swap.blockTimestamp * 1000).toISOString(),
-				swap.transactionHash
-			]);
-		}
-	}
-
-	private async processV3Swaps(db: PostgresDatabaseAdapter, swaps: SwapV3[]): Promise<void> {
-		for (const swap of swaps) {
-			await db.query(`
-				INSERT INTO uniswap_v3_swaps 
-				(pool, sender, recipient, amount0, amount1, sqrt_price_x96, liquidity, tick, block_number, block_timestamp, transaction_hash)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-			`, [
-				swap.pool,
-				swap.sender,
-				swap.recipient,
-				swap.amount0,
-				swap.amount1,
-				swap.sqrtPriceX96,
-				swap.liquidity,
-				swap.tick,
-				swap.blockNumber,
-				new Date(swap.blockTimestamp * 1000).toISOString(),
-				swap.transactionHash
-			]);
+			await this.runtime.messageManager.createMemory(memory);
 		}
 	}
 
@@ -200,22 +142,27 @@ export class UniswapWebhookService extends Service {
 
 		return new Promise((resolve, reject) => {
 			try {
-				const server = this.app.listen(PORT, '0.0.0.0', () => {
-					const address = server.address() as net.AddressInfo;
+				this.server = this.app.listen(PORT, '0.0.0.0', () => {
+					const address = this.server.address();
 					elizaLogger.info(`Webhook service running on port ${address.port}`);
 					resolve();
 				});
 
-				server.on('error', (error) => {
+				this.server.on('error', (error) => {
 					elizaLogger.error('Error starting webhook server', error);
 					reject(error);
 				});
-
-				this.server = server;
 			} catch (error) {
 				elizaLogger.error('Failed to start webhook server', error);
 				reject(error);
 			}
 		});
+	}
+
+	public stop(): void {
+		if (this.server) {
+			this.server.close();
+			elizaLogger.info(`Stopped webhook service on port ${PORT}`);
+		}
 	}
 }
