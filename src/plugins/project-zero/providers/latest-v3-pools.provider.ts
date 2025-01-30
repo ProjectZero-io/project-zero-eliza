@@ -1,11 +1,12 @@
-import {IAgentRuntime, Memory, Provider, State, stringToUuid} from "@elizaos/core";
+import {IAgentRuntime, Memory, Provider, State} from "@elizaos/core";
 import {PoolCreation} from "../interfaces/uniswap.interfaces.ts";
+import {POOLS_V3_ROOM} from "../constants.ts";
 
 export const latestUniswapV3PoolsProvider: Provider = {
 	get: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
 		try {
 			const memories = await runtime.messageManager.getMemories({
-				roomId: stringToUuid('uniswap-v3-room'),
+				roomId: POOLS_V3_ROOM,
 				count: 5,
 				unique: true
 			});
@@ -30,7 +31,7 @@ export const latestUniswapV3PoolsProvider: Provider = {
 				})
 				.join('\n\n');
 
-			return `Latest Uniswap V3 Pools: ${pools}`;
+			return `Latest Uniswap V3 Pools: \n ${pools}`;
 		} catch (error) {
 			console.error("Latest Uniswap V3 pools provider error:", error);
 			return "Unable to fetch Uniswap V3 pools at this time.";

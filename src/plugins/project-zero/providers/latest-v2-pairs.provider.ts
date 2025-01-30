@@ -1,11 +1,12 @@
-import {IAgentRuntime, Memory, Provider, State, stringToUuid} from "@elizaos/core";
+import {IAgentRuntime, Memory, Provider, State} from "@elizaos/core";
 import {PairCreation} from "../interfaces/uniswap.interfaces.ts";
+import {PAIRS_V2_ROOM} from "../constants.ts";
 
 export const latestUniswapV2PairsProvider: Provider = {
 	get: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
 		try {
 			const memories = await runtime.messageManager.getMemories({
-				roomId: stringToUuid('uniswap-v2-room'),
+				roomId: PAIRS_V2_ROOM,
 				count: 5,
 				unique: true
 			});
@@ -22,8 +23,8 @@ export const latestUniswapV2PairsProvider: Provider = {
 📍 Pair Address: ${pairData.pair}
 🔄 Tokens: ${pairData.token0} / ${pairData.token1}
 🔢 Block: ${pairData.blockNumber}
-⏰ Created: ${new Date(pairData.blockTimestamp).toLocaleString()}
 🔗 Tx: ${pairData.transactionHash}
+⏰ Created: ${new Date(pairData.blockTimestamp).toLocaleString()}
 					`.trim();
 				})
 				.join('\n\n');
