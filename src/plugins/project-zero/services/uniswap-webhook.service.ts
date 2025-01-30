@@ -232,7 +232,7 @@ export class UniswapWebhookService extends Service {
 						fee: pool.fee,
 						tickSpacing: pool.tickSpacing,
 						blockNumber: pool.blockNumber,
-						timestamp: new Date(pool.blockTimestamp * 1000).toISOString(),
+						blockTimestamp: new Date(pool.blockTimestamp * 1000).toISOString(),
 						transactionHash: pool.transactionHash
 					}
 				}
@@ -283,7 +283,7 @@ export class UniswapWebhookService extends Service {
 						amount0Out: swap.amount0Out,
 						amount1Out: swap.amount1Out,
 						blockNumber: swap.blockNumber,
-						timestamp: new Date(swap.blockTimestamp * 1000).toISOString(),
+						blockTimestamp: new Date(swap.blockTimestamp * 1000).toISOString(),
 						transactionHash: swap.transactionHash
 					})),
 				}
@@ -328,7 +328,7 @@ export class UniswapWebhookService extends Service {
 						liquidity: swap.liquidity,
 						tick: swap.tick,
 						blockNumber: swap.blockNumber,
-						timestamp: new Date(swap.blockTimestamp * 1000).toISOString(),
+						blockTimestamp: new Date(swap.blockTimestamp * 1000).toISOString(),
 						transactionHash: swap.transactionHash
 					})),
 				}
