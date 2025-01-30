@@ -9,8 +9,8 @@ import {activeV2PairsAction} from "./actions/active-v2-pairs.action.ts";
 import {activeUniswapV3PoolsProvider} from "./providers/active-v3-pools.provider.ts";
 import {activeV3PoolsAction} from "./actions/active-v3-pools.action.ts";
 
-export const projectZeroPlugin: Plugin = {
-	name: "Project Zero",
+export const uniswapMonitorPlugin: Plugin = {
+	name: "Uniswap Monitor",
 	description: "Project Zero AI Agent. Monitors Uniswap pools for high-potential trading opportunities",
 	actions: [
 		latestV2PairsAction,

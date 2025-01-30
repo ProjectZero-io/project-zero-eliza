@@ -12,7 +12,7 @@ import {startChat} from "./chat";
 import {initializeClients} from "./clients";
 import {getTokenForProvider, loadCharacters, parseArguments,} from "./config";
 import {initializeDatabase} from "./database";
-import {projectZeroPlugin} from "./plugins/project-zero";
+import {uniswapMonitorPlugin} from "./plugins/uniswap-monitor";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,10 +47,7 @@ export function createAgent(
     character,
     plugins: [
       bootstrapPlugin,
-      // nodePlugin,
-      // character.settings?.secrets?.WALLET_PUBLIC_KEY ? solanaPlugin : null,
-
-      projectZeroPlugin,
+      uniswapMonitorPlugin,
     ].filter(Boolean),
     providers: [],
     actions: [],
