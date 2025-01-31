@@ -1,4 +1,4 @@
-import {elizaLogger, IAgentRuntime, Memory, Service, ServiceType} from "@elizaos/core";
+import {elizaLogger, generateText, IAgentRuntime, Memory, ModelClass, Service, ServiceType} from "@elizaos/core";
 import {PostgresDatabaseAdapter} from "@elizaos/adapter-postgres";
 import {Scraper} from "agent-twitter-client";
 import {activeUniswapV2PairsProvider} from "../providers/active-v2-pairs.provider";
@@ -104,31 +104,50 @@ export class UniswapActivityMonitorService extends Service {
 		]);
 	}
 
-	private formatTweetText(activity: PairActivity | PoolActivity, protocol: 'v2' | 'v3'): string {
-		const protocolEmoji = protocol === 'v2' ? '🔄' : '⚡';
-		const address = 'pair_address' in activity ? activity.pair_address : activity.pool_address;
-		const feeText = 'fee' in activity ? ` (${activity.fee / 10000}% fee)` : '';
+	private async formatTweetText(activity: PairActivity | PoolActivity, protocol: 'v2' | 'v3'): Promise<string> {
+		try {
+			const address = 'pair_address' in activity ? activity.pair_address : activity.pool_address;
+			const tokens = 'token0' in activity ? `${activity.token0}/${activity.token1}` : 'tokens';
 
-		return `${protocolEmoji} High Activity Alert! ${protocol.toUpperCase()}\n\n` + address;
+			const context = `Create a concise tweet about a trending Uniswap ${protocol.toUpperCase()} pair/pool.
+			Blockchain: Ethereum 
+        Pair/Pool address: ${address}
+        Total swaps in 24h: ${activity.total_swaps}
 
-		// return `${protocolEmoji} High Activity Alert! ${protocol.toUpperCase()}\n\n` +
-		// 	`${activity.token0} / ${activity.token1}${feeText}\n` +
-		// 	`📊 ${activity.total_swaps.toLocaleString()} trades in 24h\n` +
-		// 	`💰 Volume:\n` +
-		// 	`${Number(activity.token0_volume).toLocaleString()} ${activity.token0}\n` +
-		// 	`${Number(activity.token1_volume).toLocaleString()} ${activity.token1}\n\n` +
-		// 	`🔍 ${protocol === 'v2' ? 'Pair' : 'Pool'}: ${address}\n` +
-		// 	`#Uniswap #DeFi #Crypto`;
+        The tweet should:
+        - Fit within 280 characters
+        - Be engaging and informative
+        - Include a call-to-action
+        - Use crypto/trading hashtags
+        - Show only data given in the context
+        - Don't make it up, be honest
+        - Don't mention tokens in the pool
+        - Always Include a link to the Uniswap pool
+        - Example of the link https://app.uniswap.org/explore/pools/ethereum/0xbaa20e295f153a9681fec8de1e88c2448a34320b , where the last part is the address of the pool, and ethereum is the network.`;
+
+			const tweet = await generateText({
+				runtime: this.runtime,
+				context: context,
+				modelClass: ModelClass.SMALL,
+				stop: ['\n']
+			});
+
+			// Ensure the tweet is within 280 characters
+			return tweet.length > 280 ? tweet.slice(0, 277) + '...' : tweet;
+		} catch (error) {
+			elizaLogger.error(`Error generating tweet: ${error}`);
+
+			// Fallback to a default tweet format
+			return `High Activity Alert! ${protocol.toUpperCase()}\n\nPool: ${
+				'pair_address' in activity ? activity.pair_address : activity.pool_address
+			}`;
+		}
 	}
 
 	private async postToTwitter(text: string): Promise<void> {
 		try {
 			const response = await this.twitterClient.sendTweet(text);
-
-			elizaLogger.info('Raw Twitter response:', response);
-
 			const body = await response.json();
-			elizaLogger.info('Parsed response body:', body);
 
 			const tweet = body?.data?.create_tweet?.tweet_results?.result;
 
@@ -166,7 +185,7 @@ export class UniswapActivityMonitorService extends Service {
 			for (const pair of v2Pairs) {
 				if (pair.total_swaps >= MIN_TRADE_COUNT && !(await this.isAlreadyPosted(pair.pair_address))) {
 					try {
-						const tweetText = this.formatTweetText(pair, 'v2');
+						const tweetText = await this.formatTweetText(pair, 'v2');
 						await this.postToTwitter(tweetText);
 						await this.markAsPosted(pair.pair_address, 'v2', pair);
 
@@ -177,14 +196,13 @@ export class UniswapActivityMonitorService extends Service {
 				}
 			}
 
-			// Process V3 pools
 			for (const pool of v3Pools) {
 				if (pool.total_swaps >= MIN_TRADE_COUNT && !(await this.isAlreadyPosted(pool.pool_address))) {
 					try {
-						const tweetText = this.formatTweetText(pool, 'v3');
+						const tweetText = await this.formatTweetText(pool, 'v3');
 						await this.postToTwitter(tweetText);
 						await this.markAsPosted(pool.pool_address, 'v3', pool);
-						// Add delay between tweets to avoid rate limits
+
 						await new Promise(resolve => setTimeout(resolve, 2000));
 					} catch (error) {
 						elizaLogger.error(`Error posting V3 pool ${pool.pool_address}:`, error);

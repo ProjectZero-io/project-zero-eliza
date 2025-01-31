@@ -119,6 +119,7 @@ export class UniswapWebhookService extends Service {
 				INSERT INTO uniswap_v2_pairs 
 				(address, token0, token1, block_number, block_timestamp, transaction_hash)
 				VALUES ($1, $2, $3, $4, $5, $6)
+				ON CONFLICT (address) DO NOTHING
 			`, [
 				pair.pair,
 				pair.token0,
@@ -136,6 +137,7 @@ export class UniswapWebhookService extends Service {
 				INSERT INTO uniswap_v3_pools 
 				(address, token0, token1, fee, tick_spacing, block_number, block_timestamp, transaction_hash)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+				ON CONFLICT (address) DO NOTHING
 			`, [
 				pool.pool,
 				pool.token0,
@@ -153,8 +155,9 @@ export class UniswapWebhookService extends Service {
 		for (const swap of swaps) {
 			await db.query(`
 				INSERT INTO uniswap_v2_swaps 
-				(pair, sender, "to", amount0_in, amount1_in, amount0_out, amount1_out, block_number, block_timestamp, transaction_hash)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+				(pair, sender, "to", amount0_in, amount1_in, amount0_out, amount1_out, block_number, block_timestamp, transaction_hash, log_index)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+				ON CONFLICT (transaction_hash, log_index) DO NOTHING
 			`, [
 				swap.pair,
 				swap.sender,
@@ -165,7 +168,8 @@ export class UniswapWebhookService extends Service {
 				swap.amount1Out,
 				swap.blockNumber,
 				new Date(swap.blockTimestamp * 1000).toISOString(),
-				swap.transactionHash
+				swap.transactionHash,
+				swap.logIndex
 			]);
 		}
 	}
@@ -174,8 +178,9 @@ export class UniswapWebhookService extends Service {
 		for (const swap of swaps) {
 			await db.query(`
 				INSERT INTO uniswap_v3_swaps 
-				(pool, sender, recipient, amount0, amount1, sqrt_price_x96, liquidity, tick, block_number, block_timestamp, transaction_hash)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+				(pool, sender, recipient, amount0, amount1, sqrt_price_x96, liquidity, tick, block_number, block_timestamp, transaction_hash, log_index)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+				ON CONFLICT (transaction_hash, log_index) DO NOTHING
 			`, [
 				swap.pool,
 				swap.sender,
@@ -187,7 +192,8 @@ export class UniswapWebhookService extends Service {
 				swap.tick,
 				swap.blockNumber,
 				new Date(swap.blockTimestamp * 1000).toISOString(),
-				swap.transactionHash
+				swap.transactionHash,
+				swap.logIndex
 			]);
 		}
 	}

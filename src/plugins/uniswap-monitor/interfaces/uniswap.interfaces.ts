@@ -29,6 +29,7 @@ export interface SwapV2 {
 	blockNumber: number;
 	blockTimestamp: number;
 	transactionHash: string;
+	logIndex: number;
 }
 
 export interface SwapV3 {
@@ -43,6 +44,7 @@ export interface SwapV3 {
 	blockNumber: number;
 	blockTimestamp: number;
 	transactionHash: string;
+	logIndex: number;
 }
 
 export interface UniswapBlockData {

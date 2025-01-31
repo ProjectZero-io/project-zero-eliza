@@ -6,7 +6,6 @@ export const uniswapV3SwapsMigration: Migration = {
 	up: async (db) => {
 		await db.query(`
             CREATE TABLE IF NOT EXISTS uniswap_v3_swaps (
-                id SERIAL PRIMARY KEY,
                 pool VARCHAR(42) NOT NULL,
                 sender VARCHAR(42) NOT NULL,
                 recipient VARCHAR(42) NOT NULL,
@@ -18,7 +17,9 @@ export const uniswapV3SwapsMigration: Migration = {
                 block_number BIGINT NOT NULL,
                 block_timestamp TIMESTAMP NOT NULL,
                 transaction_hash VARCHAR(66) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                log_index INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (transaction_hash, log_index)
             );
 
             CREATE INDEX idx_uniswap_v3_swaps_pool ON uniswap_v3_swaps(pool);
