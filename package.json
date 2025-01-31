@@ -26,6 +26,7 @@
     "@elizaos/plugin-solana": "0.1.7",
     "@elizaos/plugin-starknet": "0.1.7",
     "@tavily/core": "0.0.2",
+    "agent-twitter-client": "^0.0.18",
     "amqplib": "0.10.5",
     "better-sqlite3": "11.5.0",
     "body-parser": "^1.20.3",

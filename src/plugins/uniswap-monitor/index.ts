@@ -8,6 +8,7 @@ import {activeUniswapV2PairsProvider} from "./providers/active-v2-pairs.provider
 import {activeV2PairsAction} from "./actions/active-v2-pairs.action.ts";
 import {activeUniswapV3PoolsProvider} from "./providers/active-v3-pools.provider.ts";
 import {activeV3PoolsAction} from "./actions/active-v3-pools.action.ts";
+import {UniswapActivityMonitorService} from "./services/uniswap-activity-monitor.service.ts";
 
 export const uniswapMonitorPlugin: Plugin = {
 	name: "Uniswap Monitor",
@@ -24,5 +25,5 @@ export const uniswapMonitorPlugin: Plugin = {
 		activeUniswapV2PairsProvider,
 		activeUniswapV3PoolsProvider,
 	],
-	services: [new UniswapWebhookService()],
+	services: [new UniswapWebhookService(), new UniswapActivityMonitorService()],
 };

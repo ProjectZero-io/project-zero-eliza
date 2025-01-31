@@ -7,12 +7,14 @@ import {uniswapV2PairsMigration} from "./migrations/1738073845549_uniswap_v2_pai
 import {uniswapV2SwapsMigration} from "./migrations/1738077052097_uniswap_v2_swaps.ts";
 import {uniswapV3PoolsMigration} from "./migrations/1738077697562_uniswap_v3_pools.ts";
 import {uniswapV3SwapsMigration} from "./migrations/1738077825899_uniswap_v3_swaps.ts";
+import {postedUniswapActivityMigration} from "./migrations/1738309496761_posted_uniswap_activity.ts";
 
 const MIGRATIONS =[
   uniswapV2PairsMigration,
   uniswapV2SwapsMigration,
   uniswapV3PoolsMigration,
   uniswapV3SwapsMigration,
+  postedUniswapActivityMigration,
 ];
 
 export async function runMigrations(

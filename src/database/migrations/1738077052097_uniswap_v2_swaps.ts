@@ -1,7 +1,7 @@
 import {Migration} from "../database.interfaces.ts";
 
 export const uniswapV2SwapsMigration: Migration = {
-	version: 3,
+	version: 2,
 	name: 'uniswap_v2_swaps_table',
 	up: async (db) => {
 		await db.query(`
