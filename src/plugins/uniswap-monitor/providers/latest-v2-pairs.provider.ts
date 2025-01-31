@@ -1,39 +1,35 @@
-import {IAgentRuntime, Memory, Provider, State} from "@elizaos/core";
+import type {IAgentRuntime, Memory, Provider, State} from "@elizaos/core";
+import {PostgresDatabaseAdapter} from "@elizaos/adapter-postgres";
 import {PairCreation} from "../interfaces/uniswap.interfaces.ts";
-import {PAIRS_V2_ROOM} from "../constants.ts";
 
 export const latestUniswapV2PairsProvider: Provider = {
-	get: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
+	get: async (runtime: IAgentRuntime, message: Memory, state?: State): Promise<PairCreation[]> => {
 		try {
-			const memories = await runtime.messageManager.getMemories({
-				roomId: PAIRS_V2_ROOM,
-				count: 5,
-				unique: true
-			});
+			const db = runtime.databaseAdapter as PostgresDatabaseAdapter;
+			const result = await db.query(`
+                SELECT 
+                    address,
+                    token0,
+                    token1,
+                    block_number,
+                    block_timestamp,
+                    transaction_hash
+                FROM uniswap_v2_pairs
+                ORDER BY block_timestamp DESC
+                LIMIT 5;
+            `);
 
-			if (memories.length === 0) {
-				return "No recent Uniswap V2 pairs found at this time.";
-			}
-
-			const pairs = memories
-				.map(memory => {
-					const pairData = memory.content.pairData as PairCreation;
-
-					return `
-📍 Pair Address: ${pairData.pair}
-🔄 Tokens: ${pairData.token0} / ${pairData.token1}
-🔢 Block: ${pairData.blockNumber}
-🔗 Tx: ${pairData.transactionHash}
-⏰ Created: ${new Date(pairData.blockTimestamp).toLocaleString()}
-					`.trim();
-				})
-				.join('\n\n');
-
-			return `Latest Uniswap V2 Pairs: \n ${pairs}`;
-
+			return result.rows.map(row => ({
+				pair: row.address,
+				token0: row.token0,
+				token1: row.token1,
+				blockNumber: row.block_number,
+				blockTimestamp: row.block_timestamp,
+				transactionHash: row.transaction_hash
+			}));
 		} catch (error) {
 			console.error("Latest Uniswap V2 pairs provider error:", error);
-			return "Unable to fetch Uniswap V2 pairs at this time.";
+			return null;
 		}
 	}
 };

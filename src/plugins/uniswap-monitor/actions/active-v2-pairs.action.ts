@@ -1,6 +1,37 @@
 import type {Action, ActionExample, HandlerCallback, IAgentRuntime, Memory, State} from "@elizaos/core";
 import {activeUniswapV2PairsProvider} from "../providers/active-v2-pairs.provider";
 
+interface PairActivity {
+	pair_address: string;
+	token0: string;
+	token1: string;
+	total_swaps: number;
+	buy_count: number;
+	sell_count: number;
+	token0_volume: string;
+	token1_volume: string;
+}
+
+const formatPairActivity = (pairs: PairActivity[]): string => {
+	if (pairs.length === 0) {
+		return "No active pairs found in the last 24 hours.";
+	}
+
+	const pairStats = pairs
+		.map(pair => `
+📍 Pair Address: ${pair.pair_address}
+🔄 Tokens: ${pair.token0} / ${pair.token1}
+📊 Total Swaps (24h): ${pair.total_swaps.toLocaleString()}
+📈 Buys: ${pair.buy_count.toLocaleString()}
+📉 Sells: ${pair.sell_count.toLocaleString()}
+💰 Volume Token0: ${Number(pair.token0_volume).toLocaleString()}
+💰 Volume Token1: ${Number(pair.token1_volume).toLocaleString()}
+        `.trim())
+		.join('\n\n');
+
+	return `Most Active Uniswap V2 Pairs (Last 24h):\n\n${pairStats}`;
+};
+
 export const activeV2PairsAction: Action = {
 	name: "ACTIVE_V2_PAIRS",
 	similes: ["HIGH_VOLUME_V2_PAIRS", "BUSY_V2_PAIRS", "TOP_V2_PAIRS", "ACTIVE_UNISWAP_V2", "TOP_TRADING_V2_PAIRS"],
@@ -32,10 +63,9 @@ export const activeV2PairsAction: Action = {
 		callback: HandlerCallback
 	): Promise<boolean> => {
 		try {
-			// Get active pairs from provider
-			const pairsInfo = await activeUniswapV2PairsProvider.get(runtime, message, state);
+			const activePairs = await activeUniswapV2PairsProvider.get(runtime, message, state);
 
-			if (typeof pairsInfo !== 'string') {
+			if (!Array.isArray(activePairs)) {
 				await callback({
 					text: "Error: Unexpected provider response format",
 					action: "ACTIVE_V2_PAIRS"
@@ -43,16 +73,10 @@ export const activeV2PairsAction: Action = {
 				return false;
 			}
 
-			if (pairsInfo.includes("No pairs met the activity criteria")) {
-				await callback({
-					text: "No pairs met the high activity criteria in the last 24 hours (>$2M volume, >2000 trades, >1000 buys, >1000 sells)",
-					action: "ACTIVE_V2_PAIRS"
-				});
-				return true;
-			}
+			const formattedResponse = formatPairActivity(activePairs);
 
 			await callback({
-				text: pairsInfo,
+				text: formattedResponse,
 				action: "ACTIVE_V2_PAIRS"
 			});
 
@@ -90,19 +114,6 @@ export const activeV2PairsAction: Action = {
 				user: "{{user2}}",
 				content: {
 					text: "Here are the high-volume Uniswap V2 pairs I found:",
-					action: "ACTIVE_V2_PAIRS"
-				}
-			}
-		],
-		[
-			{
-				user: "{{user1}}",
-				content: { text: "show top trading pairs" }
-			},
-			{
-				user: "{{user2}}",
-				content: {
-					text: "Here are the most actively traded Uniswap V2 pairs:",
 					action: "ACTIVE_V2_PAIRS"
 				}
 			}

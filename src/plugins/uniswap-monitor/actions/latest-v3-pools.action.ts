@@ -1,5 +1,20 @@
-import type { Action, ActionExample, HandlerCallback, IAgentRuntime, Memory, State } from "@elizaos/core";
-import { latestUniswapV3PoolsProvider } from "../providers/latest-v3-pools.provider";
+import type {Action, ActionExample, HandlerCallback, IAgentRuntime, Memory, State} from "@elizaos/core";
+import {latestUniswapV3PoolsProvider} from "../providers/latest-v3-pools.provider";
+import {PoolCreation} from "../interfaces/uniswap.interfaces.ts";
+
+const formatPools = (pools: PoolCreation[]): string => {
+	const formattedPools = pools.map(pool => `
+📍 Pool Address: ${pool.pool}
+🔄 Tokens: ${pool.token0} / ${pool.token1}
+💰 Fee Tier: ${pool.fee / 10000}% (${pool.fee} bps)
+📊 Tick Spacing: ${pool.tickSpacing}
+🔢 Block: ${pool.blockNumber}
+🔗 Tx: ${pool.transactionHash}
+⏰ Created: ${new Date(pool.blockTimestamp).toLocaleString()}
+	`.trim()).join('\n\n');
+
+	return `Latest Uniswap V3 Pools:\n\n${formattedPools}`;
+};
 
 export const latestV3PoolsAction: Action = {
 	name: "LATEST_V3_POOLS",
@@ -28,17 +43,17 @@ export const latestV3PoolsAction: Action = {
 		callback: HandlerCallback
 	): Promise<boolean> => {
 		try {
-			const poolsInfo = await latestUniswapV3PoolsProvider.get(runtime, message, state);
+			const pools = await latestUniswapV3PoolsProvider.get(runtime, message, state);
 
-			if (typeof poolsInfo !== 'string') {
+			if (!pools) {
 				await callback({
-					text: "Error: Unexpected provider response format",
+					text: "Sorry, I encountered an error while fetching the latest V3 pools. Please try again later.",
 					action: "LATEST_V3_POOLS"
 				});
 				return false;
 			}
 
-			if (poolsInfo.includes("No Uniswap V3 pools found")) {
+			if (pools.length === 0) {
 				await callback({
 					text: "No recent Uniswap V3 pools found at this time.",
 					action: "LATEST_V3_POOLS"
@@ -47,7 +62,7 @@ export const latestV3PoolsAction: Action = {
 			}
 
 			await callback({
-				text: poolsInfo,
+				text: formatPools(pools),
 				action: "LATEST_V3_POOLS"
 			});
 

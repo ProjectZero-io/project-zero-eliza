@@ -1,5 +1,18 @@
-import type { Action, ActionExample, HandlerCallback, IAgentRuntime, Memory, State } from "@elizaos/core";
-import { latestUniswapV2PairsProvider } from "../providers/latest-v2-pairs.provider";
+import type {Action, ActionExample, HandlerCallback, IAgentRuntime, Memory, State} from "@elizaos/core";
+import {latestUniswapV2PairsProvider} from "../providers/latest-v2-pairs.provider";
+import {PairCreation} from "../interfaces/uniswap.interfaces.ts";
+
+const formatPairs = (pairs: PairCreation[]): string => {
+	const formattedPairs = pairs.map(pair => `
+📍 Pair Address: ${pair.pair}
+🔄 Tokens: ${pair.token0} / ${pair.token1}
+🔢 Block: ${pair.blockNumber}
+🔗 Tx: ${pair.transactionHash}
+⏰ Created: ${pair.blockTimestamp.toLocaleString()}
+    `.trim()).join('\n\n');
+
+	return `Latest Uniswap V2 Pairs:\n\n${formattedPairs}`;
+};
 
 export const latestV2PairsAction: Action = {
 	name: "LATEST_V2_PAIRS",
@@ -32,18 +45,17 @@ export const latestV2PairsAction: Action = {
 		callback: HandlerCallback
 	): Promise<boolean> => {
 		try {
-			// Directly call the provider to get the latest V2 pairs
-			const pairsInfo = await latestUniswapV2PairsProvider.get(runtime, message, state);
+			const pairs = await latestUniswapV2PairsProvider.get(runtime, message, state);
 
-			if (typeof pairsInfo !== 'string') {
+			if (!pairs) {
 				await callback({
-					text: "Error: Unexpected provider response format",
+					text: "Sorry, I encountered an error while fetching the latest V2 pairs. Please try again later.",
 					action: "LATEST_V2_PAIRS"
 				});
 				return false;
 			}
 
-			if (pairsInfo.includes("No Uniswap V2 pairs found")) {
+			if (pairs.length === 0) {
 				await callback({
 					text: "No recent Uniswap V2 pairs found at this time.",
 					action: "LATEST_V2_PAIRS"
@@ -52,7 +64,7 @@ export const latestV2PairsAction: Action = {
 			}
 
 			await callback({
-				text: pairsInfo,
+				text: formatPairs(pairs),
 				action: "LATEST_V2_PAIRS"
 			});
 

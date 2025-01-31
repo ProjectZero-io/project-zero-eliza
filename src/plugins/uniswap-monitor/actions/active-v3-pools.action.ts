@@ -1,6 +1,43 @@
 import type {Action, ActionExample, HandlerCallback, IAgentRuntime, Memory, State} from "@elizaos/core";
 import {activeUniswapV3PoolsProvider} from "../providers/active-v3-pools.provider";
 
+interface PoolActivity {
+	pool_address: string;
+	token0: string;
+	token1: string;
+	fee: number;
+	total_swaps: number;
+	buy_count: number;
+	sell_count: number;
+	token0_volume: string;
+	token1_volume: string;
+}
+
+const formatFee = (fee: number): string => {
+	return `${(fee / 10000).toFixed(2)}%`;
+};
+
+const formatPoolActivity = (pools: PoolActivity[]): string => {
+	if (pools.length === 0) {
+		return "No active pools found in the last 24 hours.";
+	}
+
+	const poolStats = pools
+		.map(pool => `
+📍 Pool Address: ${pool.pool_address}
+🔄 Tokens: ${pool.token0} / ${pool.token1}
+💸 Fee Tier: ${formatFee(pool.fee)}
+📊 Total Swaps (24h): ${pool.total_swaps.toLocaleString()}
+📈 Buys: ${pool.buy_count.toLocaleString()}
+📉 Sells: ${pool.sell_count.toLocaleString()}
+💰 Volume Token0: ${Number(pool.token0_volume).toLocaleString()}
+💰 Volume Token1: ${Number(pool.token1_volume).toLocaleString()}
+        `.trim())
+		.join('\n\n');
+
+	return `Most Active Uniswap V3 Pools (Last 24h):\n\n${poolStats}`;
+};
+
 export const activeV3PoolsAction: Action = {
 	name: "ACTIVE_V3_POOLS",
 	similes: ["HIGH_VOLUME_V3_POOLS", "BUSY_V3_POOLS", "TOP_V3_POOLS", "ACTIVE_UNISWAP_V3", "TOP_TRADING_V3_POOLS"],
@@ -32,10 +69,9 @@ export const activeV3PoolsAction: Action = {
 		callback: HandlerCallback
 	): Promise<boolean> => {
 		try {
-			// Get active pools from provider
-			const poolsInfo = await activeUniswapV3PoolsProvider.get(runtime, message, state);
+			const activePools = await activeUniswapV3PoolsProvider.get(runtime, message, state);
 
-			if (typeof poolsInfo !== 'string') {
+			if (!Array.isArray(activePools)) {
 				await callback({
 					text: "Error: Unexpected provider response format",
 					action: "ACTIVE_V3_POOLS"
@@ -43,16 +79,10 @@ export const activeV3PoolsAction: Action = {
 				return false;
 			}
 
-			if (poolsInfo.includes("No pools met the activity criteria")) {
-				await callback({
-					text: "No pools met the high activity criteria in the last 24 hours (>$2M volume, >2000 trades, >1000 buys, >1000 sells)",
-					action: "ACTIVE_V3_POOLS"
-				});
-				return true;
-			}
+			const formattedResponse = formatPoolActivity(activePools);
 
 			await callback({
-				text: poolsInfo,
+				text: formattedResponse,
 				action: "ACTIVE_V3_POOLS"
 			});
 
@@ -90,19 +120,6 @@ export const activeV3PoolsAction: Action = {
 				user: "{{user2}}",
 				content: {
 					text: "Here are the high-volume Uniswap V3 pools I found:",
-					action: "ACTIVE_V3_POOLS"
-				}
-			}
-		],
-		[
-			{
-				user: "{{user1}}",
-				content: { text: "show top trading pools on v3" }
-			},
-			{
-				user: "{{user2}}",
-				content: {
-					text: "Here are the most actively traded Uniswap V3 pools:",
 					action: "ACTIVE_V3_POOLS"
 				}
 			}
