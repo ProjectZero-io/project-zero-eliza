@@ -1,11 +1,11 @@
 import {Migration} from "../database.interfaces.ts";
 
-export const uniswapV3SwapsMigration: Migration = {
+export const ethereumUniswapV3SwapsMigration: Migration = {
 	version: 4,
-	name: 'uniswap_v3_swaps_table',
+	name: 'ethereum_uniswap_v3_swaps_table',
 	up: async (db) => {
 		await db.query(`
-            CREATE TABLE IF NOT EXISTS uniswap_v3_swaps (
+            CREATE TABLE IF NOT EXISTS ethereum_uniswap_v3_swaps (
                 pool VARCHAR(42) NOT NULL,
                 sender VARCHAR(42) NOT NULL,
                 recipient VARCHAR(42) NOT NULL,
@@ -22,12 +22,12 @@ export const uniswapV3SwapsMigration: Migration = {
                 PRIMARY KEY (transaction_hash, log_index)
             );
 
-            CREATE INDEX idx_uniswap_v3_swaps_pool ON uniswap_v3_swaps(pool);
+            CREATE INDEX idx_ethereum_uniswap_v3_swaps_pool ON ethereum_uniswap_v3_swaps(pool);
         `);
 	},
 	down: async (db) => {
 		await db.query(`
-            DROP TABLE IF EXISTS uniswap_v3_swaps;
+            DROP TABLE IF EXISTS ethereum_uniswap_v3_swaps;
         `);
 	}
 };

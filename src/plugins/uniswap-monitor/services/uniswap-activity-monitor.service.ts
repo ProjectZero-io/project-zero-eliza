@@ -1,8 +1,9 @@
-import {elizaLogger, generateText, IAgentRuntime, Memory, ModelClass, Service, ServiceType} from "@elizaos/core";
+import {elizaLogger, generateText, IAgentRuntime, Memory, ModelClass, Service, ServiceType, State} from "@elizaos/core";
 import {PostgresDatabaseAdapter} from "@elizaos/adapter-postgres";
 import {Scraper} from "agent-twitter-client";
 import {activeUniswapV2PairsProvider} from "../providers/active-v2-pairs.provider";
 import {activeUniswapV3PoolsProvider} from "../providers/active-v3-pools.provider";
+import {Blockchain} from "../interfaces/uniswap.interfaces.ts";
 
 const ACTIVITY_MONITOR_SERVICE = 'ACTIVITY_MONITOR_SERVICE' as ServiceType;
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -58,11 +59,17 @@ export class UniswapActivityMonitorService extends Service {
 
 	private async startMonitoring(): Promise<void> {
 		try {
-			await this.checkAndReport();
+			const blockchains = [Blockchain.ETHEREUM, Blockchain.BASE];
+
+			for (const blockchain of blockchains) {
+				await this.checkAndReport(blockchain);
+			}
 
 			this.checkInterval = setInterval(async () => {
 				try {
-					await this.checkAndReport();
+					for (const blockchain of blockchains) {
+						await this.checkAndReport(blockchain);
+					}
 				} catch (error) {
 					elizaLogger.error('Error in activity check:', error);
 				}
@@ -79,19 +86,23 @@ export class UniswapActivityMonitorService extends Service {
 		}
 	}
 
-	private async isAlreadyPosted(address: string): Promise<boolean> {
+	private async isAlreadyPosted(address: string, blockchain: Blockchain): Promise<boolean> {
+		const table = `${blockchain}_posted_uniswap_activity`;
+
 		const db = this.runtime.databaseAdapter as PostgresDatabaseAdapter;
 		const result = await db.query(
-			'SELECT EXISTS(SELECT 1 FROM posted_uniswap_activity WHERE address = $1)',
+			`SELECT EXISTS(SELECT 1 FROM ${table} WHERE address = $1)`,
 			[address]
 		);
 		return result.rows[0].exists;
 	}
 
-	private async markAsPosted(address: string, protocol: 'v2' | 'v3', activity: PairActivity | PoolActivity): Promise<void> {
+	private async markAsPosted(address: string, activity: PairActivity | PoolActivity, protocol: 'v2' | 'v3', blockchain: Blockchain): Promise<void> {
+		const table = `${blockchain}_posted_uniswap_activity`;
 		const db = this.runtime.databaseAdapter as PostgresDatabaseAdapter;
+
 		await db.query(`
-            INSERT INTO posted_uniswap_activity 
+            INSERT INTO ${table} 
                 (address, protocol, token0, token1, trade_count, fee)
             VALUES ($1, $2, $3, $4, $5, $6)
         `, [
@@ -175,19 +186,19 @@ export class UniswapActivityMonitorService extends Service {
 		}
 	}
 
-	private async checkAndReport(): Promise<void> {
+	private async checkAndReport(blockchain: Blockchain): Promise<void> {
 		try {
 			const [v2Pairs, v3Pools] = await Promise.all([
-				activeUniswapV2PairsProvider.get(this.runtime, {} as Memory),
-				activeUniswapV3PoolsProvider.get(this.runtime, {} as Memory)
+				activeUniswapV2PairsProvider.get(this.runtime, {} as Memory, {} as State, blockchain),
+				activeUniswapV3PoolsProvider.get(this.runtime, {} as Memory, {} as State, blockchain)
 			]);
 
 			for (const pair of v2Pairs) {
-				if (pair.total_swaps >= MIN_TRADE_COUNT && !(await this.isAlreadyPosted(pair.pair_address))) {
+				if (pair.total_swaps >= MIN_TRADE_COUNT && !(await this.isAlreadyPosted(pair.pair_address, blockchain))) {
 					try {
 						const tweetText = await this.formatTweetText(pair, 'v2');
 						await this.postToTwitter(tweetText);
-						await this.markAsPosted(pair.pair_address, 'v2', pair);
+						await this.markAsPosted(pair.pair_address, pair, 'v2', blockchain);
 
 						await new Promise(resolve => setTimeout(resolve, 2000));
 					} catch (error) {
@@ -197,11 +208,11 @@ export class UniswapActivityMonitorService extends Service {
 			}
 
 			for (const pool of v3Pools) {
-				if (pool.total_swaps >= MIN_TRADE_COUNT && !(await this.isAlreadyPosted(pool.pool_address))) {
+				if (pool.total_swaps >= MIN_TRADE_COUNT && !(await this.isAlreadyPosted(pool.pool_address, blockchain))) {
 					try {
 						const tweetText = await this.formatTweetText(pool, 'v3');
 						await this.postToTwitter(tweetText);
-						await this.markAsPosted(pool.pool_address, 'v3', pool);
+						await this.markAsPosted(pool.pool_address, pool, 'v3', blockchain);
 
 						await new Promise(resolve => setTimeout(resolve, 2000));
 					} catch (error) {

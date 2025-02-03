@@ -1,20 +1,9 @@
-import type {IAgentRuntime, Memory, Provider, State} from "@elizaos/core";
+import type {IAgentRuntime, Memory, State} from "@elizaos/core";
 import {PostgresDatabaseAdapter} from "@elizaos/adapter-postgres";
+import {Blockchain, ExtendedProvider, PoolActivity} from "../interfaces/uniswap.interfaces.ts";
 
-interface PoolActivity {
-	pool_address: string;
-	token0: string;
-	token1: string;
-	fee: number;
-	total_swaps: number;
-	buy_count: number;
-	sell_count: number;
-	token0_volume: string;
-	token1_volume: string;
-}
-
-export const activeUniswapV3PoolsProvider: Provider = {
-	get: async (runtime: IAgentRuntime, _message: Memory, _state?: State): Promise<PoolActivity[]> => {
+export const activeUniswapV3PoolsProvider: ExtendedProvider<PoolActivity> = {
+	get: async (runtime: IAgentRuntime, _message: Memory, _state?: State, blockchain = Blockchain.ETHEREUM): Promise<PoolActivity[]> => {
 		try {
 			const db = runtime.databaseAdapter as PostgresDatabaseAdapter;
 			const result = await db.query(`
@@ -32,7 +21,7 @@ export const activeUniswapV3PoolsProvider: Provider = {
                             WHEN amount1 > 0 THEN amount1
                             ELSE ABS(amount1)
                         END), 0) as token1_volume
-                    FROM uniswap_v3_swaps
+                    FROM ${blockchain}_uniswap_v3_swaps
                     WHERE block_timestamp >= NOW() - INTERVAL '24 hours'
                     GROUP BY pool
                 )
@@ -46,7 +35,7 @@ export const activeUniswapV3PoolsProvider: Provider = {
                     COALESCE(s.sell_count, 0) as sell_count,
                     COALESCE(s.token0_volume, 0)::text as token0_volume,
                     COALESCE(s.token1_volume, 0)::text as token1_volume
-                FROM uniswap_v3_pools p
+                FROM ${blockchain}_uniswap_v3_pools p
                 LEFT JOIN last_24h_swaps s ON s.pool = p.address
                 WHERE s.total_swaps > 0
                 ORDER BY s.total_swaps DESC

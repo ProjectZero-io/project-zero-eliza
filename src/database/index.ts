@@ -3,18 +3,28 @@ import {SqliteDatabaseAdapter} from "@elizaos/adapter-sqlite";
 import Database from "better-sqlite3";
 import path from "path";
 import {elizaLogger} from "@elizaos/core";
-import {uniswapV2PairsMigration} from "./migrations/1738073845549_uniswap_v2_pairs.ts";
-import {uniswapV2SwapsMigration} from "./migrations/1738077052097_uniswap_v2_swaps.ts";
-import {uniswapV3PoolsMigration} from "./migrations/1738077697562_uniswap_v3_pools.ts";
-import {uniswapV3SwapsMigration} from "./migrations/1738077825899_uniswap_v3_swaps.ts";
-import {postedUniswapActivityMigration} from "./migrations/1738309496761_posted_uniswap_activity.ts";
+import {ethereumUniswapV2PairsMigration} from "./migrations/1738073845549_ethereum_uniswap_v2_pairs.ts";
+import {ethereumUniswapV2SwapsMigration} from "./migrations/1738077052097_ethereum_uniswap_v2_swaps.ts";
+import {ethereumUniswapV3PoolsMigration} from "./migrations/1738077697562_ethereum_uniswap_v3_pools.ts";
+import {ethereumUniswapV3SwapsMigration} from "./migrations/1738077825899_ethereum_uniswap_v3_swaps.ts";
+import {ethereumPostedUniswapActivityMigration} from "./migrations/1738309496761_ethereum_posted_uniswap_activity.ts";
+import {baseUniswapV2PairsMigration} from "./migrations/1738588531749_base_uniswap_v2_pairs.ts";
+import {baseUniswapV2SwapsMigration} from "./migrations/1738588569779_base_uniswap_v2_swaps.ts";
+import {baseUniswapV3PoolsMigration} from "./migrations/1738588597941_base_uniswap_v3_pools.ts";
+import {baseUniswapV3SwapsMigration} from "./migrations/1738588632294_base_uniswap_v3_swaps.ts";
+import {basePostedUniswapActivityMigration} from "./migrations/1738588658938_base_posted_uniswap_activity.ts";
 
 const MIGRATIONS =[
-  uniswapV2PairsMigration,
-  uniswapV2SwapsMigration,
-  uniswapV3PoolsMigration,
-  uniswapV3SwapsMigration,
-  postedUniswapActivityMigration,
+  ethereumUniswapV2PairsMigration,
+  ethereumUniswapV2SwapsMigration,
+  ethereumUniswapV3PoolsMigration,
+  ethereumUniswapV3SwapsMigration,
+  ethereumPostedUniswapActivityMigration,
+  baseUniswapV2PairsMigration,
+  baseUniswapV2SwapsMigration,
+  baseUniswapV3PoolsMigration,
+  baseUniswapV3SwapsMigration,
+  basePostedUniswapActivityMigration,
 ];
 
 export async function runMigrations(

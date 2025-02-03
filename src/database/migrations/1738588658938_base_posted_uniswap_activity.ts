@@ -1,11 +1,11 @@
 import {Migration} from "../database.interfaces.ts";
 
-export const postedUniswapActivityMigration: Migration = {
-	version: 5,
-	name: 'posted_uniswap_activity_table',
+export const basePostedUniswapActivityMigration: Migration = {
+	version: 10,
+	name: 'base_posted_uniswap_activity_table',
 	up: async (db) => {
 		await db.query(`
-			CREATE TABLE IF NOT EXISTS posted_uniswap_activity (
+			CREATE TABLE IF NOT EXISTS base_posted_uniswap_activity (
 			    id SERIAL PRIMARY KEY,
 			    address TEXT NOT NULL,
 			    protocol TEXT NOT NULL CHECK (protocol IN ('v2', 'v3')),
@@ -20,7 +20,7 @@ export const postedUniswapActivityMigration: Migration = {
 	},
 	down: async (db) => {
 		await db.query(`
-            DROP TABLE IF EXISTS posted_uniswap_activity;
+            DROP TABLE IF EXISTS base_posted_uniswap_activity;
         `);
 	}
 };

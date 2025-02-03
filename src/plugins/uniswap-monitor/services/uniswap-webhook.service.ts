@@ -3,7 +3,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import {PostgresDatabaseAdapter} from "@elizaos/adapter-postgres";
 import net from 'net';
-import {PairCreation, PoolCreation, SwapV2, SwapV3, UniswapBlockData} from "../interfaces/uniswap.interfaces.ts";
+import {UniswapBlockData} from "../interfaces/uniswap.interfaces.ts";
 
 const WEBHOOK_SERVICE = 'WEBHOOK_SERVICE' as ServiceType;
 const PORT = 3030;
@@ -93,19 +93,19 @@ export class UniswapWebhookService extends Service {
 		const processors = [];
 
 		if (blockData.uniswapV2.swaps.length > 0) {
-			processors.push(this.processV2Swaps(db, blockData.uniswapV2.swaps));
+			processors.push(this.processV2Swaps(db, blockData));
 		}
 
 		if (blockData.uniswapV3.swaps.length > 0) {
-			processors.push(this.processV3Swaps(db, blockData.uniswapV3.swaps));
+			processors.push(this.processV3Swaps(db, blockData));
 		}
 
 		if (blockData.uniswapV2.pairCreations.length > 0) {
-			processors.push(this.processPairCreations(db, blockData.uniswapV2.pairCreations));
+			processors.push(this.processPairCreations(db, blockData));
 		}
 
 		if (blockData.uniswapV3.poolCreations.length > 0) {
-			processors.push(this.processPoolCreations(db, blockData.uniswapV3.poolCreations));
+			processors.push(this.processPoolCreations(db, blockData));
 		}
 
 		await Promise.all(processors);
@@ -113,10 +113,13 @@ export class UniswapWebhookService extends Service {
 		elizaLogger.info(`Processed block #${blockData.number}. V2 Pairs: ${blockData.uniswapV2.pairCreations.length}, V3 Pools: ${blockData.uniswapV3.poolCreations.length} V2 Swaps: ${blockData.uniswapV2.swaps.length}, V3 Swaps: ${blockData.uniswapV3.swaps.length}`);
 	}
 
-	private async processPairCreations(db: PostgresDatabaseAdapter, pairCreations: PairCreation[]): Promise<void> {
+	private async processPairCreations(db: PostgresDatabaseAdapter, blockData: UniswapBlockData): Promise<void> {
+		const table = `${blockData.blockchain}_uniswap_v2_pairs`;
+		const pairCreations = blockData.uniswapV2.pairCreations;
+
 		for (const pair of pairCreations) {
 			await db.query(`
-				INSERT INTO uniswap_v2_pairs 
+				INSERT INTO ${table}
 				(address, token0, token1, block_number, block_timestamp, transaction_hash)
 				VALUES ($1, $2, $3, $4, $5, $6)
 				ON CONFLICT (address) DO NOTHING
@@ -131,10 +134,13 @@ export class UniswapWebhookService extends Service {
 		}
 	}
 
-	private async processPoolCreations(db: PostgresDatabaseAdapter, poolCreations: PoolCreation[]): Promise<void> {
+	private async processPoolCreations(db: PostgresDatabaseAdapter, blockData: UniswapBlockData): Promise<void> {
+		const table = `${blockData.blockchain}_uniswap_v3_pools`;
+		const poolCreations = blockData.uniswapV3.poolCreations;
+
 		for (const pool of poolCreations) {
 			await db.query(`
-				INSERT INTO uniswap_v3_pools 
+				INSERT INTO ${table}
 				(address, token0, token1, fee, tick_spacing, block_number, block_timestamp, transaction_hash)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 				ON CONFLICT (address) DO NOTHING
@@ -151,10 +157,13 @@ export class UniswapWebhookService extends Service {
 		}
 	}
 
-	private async processV2Swaps(db: PostgresDatabaseAdapter, swaps: SwapV2[]): Promise<void> {
+	private async processV2Swaps(db: PostgresDatabaseAdapter, blockData: UniswapBlockData): Promise<void> {
+		const table = `${blockData.blockchain}_uniswap_v2_swaps`;
+		const swaps = blockData.uniswapV2.swaps;
+
 		for (const swap of swaps) {
 			await db.query(`
-				INSERT INTO uniswap_v2_swaps 
+				INSERT INTO ${table} 
 				(pair, sender, "to", amount0_in, amount1_in, amount0_out, amount1_out, block_number, block_timestamp, transaction_hash, log_index)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 				ON CONFLICT (transaction_hash, log_index) DO NOTHING
@@ -174,10 +183,13 @@ export class UniswapWebhookService extends Service {
 		}
 	}
 
-	private async processV3Swaps(db: PostgresDatabaseAdapter, swaps: SwapV3[]): Promise<void> {
+	private async processV3Swaps(db: PostgresDatabaseAdapter, blockData: UniswapBlockData): Promise<void> {
+		const table = `${blockData.blockchain}_uniswap_v3_swaps`;
+		const swaps = blockData.uniswapV3.swaps;
+
 		for (const swap of swaps) {
 			await db.query(`
-				INSERT INTO uniswap_v3_swaps 
+				INSERT INTO ${table}
 				(pool, sender, recipient, amount0, amount1, sqrt_price_x96, liquidity, tick, block_number, block_timestamp, transaction_hash, log_index)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 				ON CONFLICT (transaction_hash, log_index) DO NOTHING
