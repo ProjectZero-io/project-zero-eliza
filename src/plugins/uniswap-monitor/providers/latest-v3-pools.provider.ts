@@ -1,9 +1,9 @@
 import type {IAgentRuntime, Memory, Provider, State} from "@elizaos/core";
 import {PostgresDatabaseAdapter} from "@elizaos/adapter-postgres";
-import {PoolCreation} from "../interfaces/uniswap.interfaces.ts";
+import {Blockchain, PoolCreation} from "../interfaces/uniswap.interfaces.ts";
 
 export const latestUniswapV3PoolsProvider: Provider = {
-	get: async (runtime: IAgentRuntime, message: Memory, state?: State): Promise<PoolCreation[]> => {
+	get: async (runtime: IAgentRuntime, message: Memory, state?: State, blockchain = Blockchain.ETHEREUM): Promise<PoolCreation[]> => {
 		try {
 			const db = runtime.databaseAdapter as PostgresDatabaseAdapter;
 
@@ -17,7 +17,7 @@ export const latestUniswapV3PoolsProvider: Provider = {
                     block_number,
                     block_timestamp,
                     transaction_hash
-                FROM uniswap_v3_pools
+                FROM ${blockchain}_uniswap_v3_pools
                 ORDER BY block_timestamp DESC
                 LIMIT 5;
             `);

@@ -115,15 +115,14 @@ export class UniswapActivityMonitorService extends Service {
 		]);
 	}
 
-	private async formatTweetText(activity: PairActivity | PoolActivity, protocol: 'v2' | 'v3'): Promise<string> {
+	private async formatTweetText(activity: PairActivity | PoolActivity, protocol: 'v2' | 'v3', blockchain: Blockchain): Promise<string> {
 		try {
 			const address = 'pair_address' in activity ? activity.pair_address : activity.pool_address;
 			const tokens = 'token0' in activity ? `${activity.token0}/${activity.token1}` : 'tokens';
 
 			const context = `Create a concise tweet about a trending Uniswap ${protocol.toUpperCase()} pair/pool.
-			Blockchain: Ethereum 
-        Pair/Pool address: ${address}
-        Total swaps in 24h: ${activity.total_swaps}
+			Blockchain: ${blockchain} 
+            Pair/Pool address: ${address}
 
         The tweet should:
         - Fit within 280 characters
@@ -133,8 +132,12 @@ export class UniswapActivityMonitorService extends Service {
         - Show only data given in the context
         - Don't make it up, be honest
         - Don't mention tokens in the pool
-        - Always Include a link to the Uniswap pool
-        - Example of the link https://app.uniswap.org/explore/pools/ethereum/0xbaa20e295f153a9681fec8de1e88c2448a34320b , where the last part is the address of the pool, and ethereum is the network.`;
+        - Don't mention the price of the tokens
+        - Don't mention the volume of the tokens
+        - Don't mention pool/pair address
+        - Always show blockchain name starting with a capital letter
+        - Always Include a link to the Uniswap pool/pair
+        - Example of the link https://app.uniswap.org/explore/pools/ethereum/0xbaa20e295f153a9681fec8de1e88c2448a34320b , where the last part is the address of the pool, and ethereum is the blockchain.`;
 
 			const tweet = await generateText({
 				runtime: this.runtime,
@@ -196,7 +199,7 @@ export class UniswapActivityMonitorService extends Service {
 			for (const pair of v2Pairs) {
 				if (pair.total_swaps >= MIN_TRADE_COUNT && !(await this.isAlreadyPosted(pair.pair_address, blockchain))) {
 					try {
-						const tweetText = await this.formatTweetText(pair, 'v2');
+						const tweetText = await this.formatTweetText(pair, 'v2', blockchain);
 						await this.postToTwitter(tweetText);
 						await this.markAsPosted(pair.pair_address, pair, 'v2', blockchain);
 
@@ -210,7 +213,7 @@ export class UniswapActivityMonitorService extends Service {
 			for (const pool of v3Pools) {
 				if (pool.total_swaps >= MIN_TRADE_COUNT && !(await this.isAlreadyPosted(pool.pool_address, blockchain))) {
 					try {
-						const tweetText = await this.formatTweetText(pool, 'v3');
+						const tweetText = await this.formatTweetText(pool, 'v3', blockchain);
 						await this.postToTwitter(tweetText);
 						await this.markAsPosted(pool.pool_address, pool, 'v3', blockchain);
 

@@ -61,6 +61,12 @@ export class UniswapWebhookService extends Service {
 					await this.processBlockData(blockData);
 				}
 
+				const v2Pairs = body.data.reduce((acc, block) => acc + block.uniswapV2.pairCreations.length, 0);
+				const v3Pools = body.data.reduce((acc, block) => acc + block.uniswapV3.poolCreations.length, 0);
+				const v2Swaps = body.data.reduce((acc, block) => acc + block.uniswapV2.swaps.length, 0);
+				const v3Swaps = body.data.reduce((acc, block) => acc + block.uniswapV3.swaps.length, 0);
+				elizaLogger.info(`Processed ${body.data.length} blocks. V2 Pairs: ${v2Pairs}, V3 Pools: ${v3Pools}, V2 Swaps: ${v2Swaps}, V3 Swaps: ${v3Swaps}`);
+
 				res.status(200).send('ok');
 			} catch (error) {
 				elizaLogger.error('Error processing webhook', error);
@@ -109,8 +115,6 @@ export class UniswapWebhookService extends Service {
 		}
 
 		await Promise.all(processors);
-
-		elizaLogger.info(`Processed block #${blockData.number}. V2 Pairs: ${blockData.uniswapV2.pairCreations.length}, V3 Pools: ${blockData.uniswapV3.poolCreations.length} V2 Swaps: ${blockData.uniswapV2.swaps.length}, V3 Swaps: ${blockData.uniswapV3.swaps.length}`);
 	}
 
 	private async processPairCreations(db: PostgresDatabaseAdapter, blockData: UniswapBlockData): Promise<void> {
