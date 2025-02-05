@@ -1,28 +1,18 @@
-import { DirectClient } from "@elizaos/client-direct";
-import {
-  AgentRuntime,
-  elizaLogger,
-  settings,
-  stringToUuid,
-  type Character,
-} from "@elizaos/core";
-import { bootstrapPlugin } from "@elizaos/plugin-bootstrap";
-import { createNodePlugin } from "@elizaos/plugin-node";
-import { solanaPlugin } from "@elizaos/plugin-solana";
+import {DirectClient} from "@elizaos/client-direct";
+import {AgentRuntime, type Character, elizaLogger, settings, stringToUuid,} from "@elizaos/core";
+import {bootstrapPlugin} from "@elizaos/plugin-bootstrap";
+import {createNodePlugin} from "@elizaos/plugin-node";
 import fs from "fs";
 import net from "net";
 import path from "path";
-import { fileURLToPath } from "url";
-import { initializeDbCache } from "./cache/index.ts";
-import { character } from "./character.ts";
-import { startChat } from "./chat/index.ts";
-import { initializeClients } from "./clients/index.ts";
-import {
-  getTokenForProvider,
-  loadCharacters,
-  parseArguments,
-} from "./config/index.ts";
-import { initializeDatabase } from "./database/index.ts";
+import {fileURLToPath} from "url";
+import {initializeDbCache} from "./cache";
+import {character} from "./character.ts";
+import {startChat} from "./chat";
+import {initializeClients} from "./clients";
+import {getTokenForProvider, loadCharacters, parseArguments,} from "./config";
+import {initializeDatabase} from "./database";
+import {uniswapMonitorPlugin} from "./plugins/uniswap-monitor";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,8 +47,7 @@ export function createAgent(
     character,
     plugins: [
       bootstrapPlugin,
-      nodePlugin,
-      character.settings?.secrets?.WALLET_PUBLIC_KEY ? solanaPlugin : null,
+      uniswapMonitorPlugin,
     ].filter(Boolean),
     providers: [],
     actions: [],
@@ -80,7 +69,7 @@ async function startAgent(character: Character, directClient: DirectClient) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    const db = initializeDatabase(dataDir);
+    const db = await initializeDatabase(dataDir);
 
     await db.init();
 
@@ -134,11 +123,10 @@ const startAgents = async () => {
   let charactersArg = args.characters || args.character;
   let characters = [character];
 
-  console.log("charactersArg", charactersArg);
   if (charactersArg) {
     characters = await loadCharacters(charactersArg);
   }
-  console.log("characters", characters);
+
   try {
     for (const character of characters) {
       await startAgent(character, directClient as DirectClient);
