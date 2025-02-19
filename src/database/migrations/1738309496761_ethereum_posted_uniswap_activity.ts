@@ -5,7 +5,7 @@ export const ethereumPostedUniswapActivityMigration: Migration = {
 	name: 'ethereum_posted_uniswap_activity_table',
 	up: async (db) => {
 		await db.query(`
-			CREATE TABLE IF NOT EXISTS base_posted_uniswap_activity (
+			CREATE TABLE IF NOT EXISTS ethereum_posted_uniswap_activity (
 			    id SERIAL PRIMARY KEY,
 			    address TEXT NOT NULL,
 			    protocol TEXT NOT NULL CHECK (protocol IN ('v2', 'v3')),
@@ -20,7 +20,7 @@ export const ethereumPostedUniswapActivityMigration: Migration = {
 	},
 	down: async (db) => {
 		await db.query(`
-            DROP TABLE IF EXISTS base_posted_uniswap_activity;
+            DROP TABLE IF EXISTS ethereum_posted_uniswap_activity;
         `);
 	}
 };
