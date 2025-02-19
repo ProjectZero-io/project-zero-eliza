@@ -7,7 +7,13 @@ import {Blockchain} from "../interfaces/uniswap.interfaces.ts";
 
 const ACTIVITY_MONITOR_SERVICE = 'ACTIVITY_MONITOR_SERVICE' as ServiceType;
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
-const MIN_TRADE_COUNT = 500;
+const MIN_TRADE_COUNT = 1000;
+
+const POST_CONFIG = {
+	MIN_DELAY: 30 * 1000,  // 30 seconds
+	MAX_DELAY: 120 * 1000, // 2 minutes
+	MAX_POSTS_PER_BATCH: 5 // Maximum posts to process in one check interval
+};
 
 interface PairActivity {
 	pair_address: string;
@@ -32,10 +38,11 @@ export class UniswapActivityMonitorService extends Service {
 	private runtime: IAgentRuntime;
 	private twitterClient: Scraper;
 	private checkInterval: NodeJS.Timeout | null = null;
+	private tweetQueue: { text: string; address: string }[] = [];
+	private isProcessingQueue: boolean = false;
 
 	constructor() {
 		super();
-
 		this.twitterClient = new Scraper();
 	}
 
@@ -57,6 +64,54 @@ export class UniswapActivityMonitorService extends Service {
 		elizaLogger.info('Uniswap Activity Monitor Service initialized');
 	}
 
+	private getRandomDelay(): number {
+		return Math.floor(
+			Math.random() *
+			(POST_CONFIG.MAX_DELAY - POST_CONFIG.MIN_DELAY) +
+			POST_CONFIG.MIN_DELAY
+		);
+	}
+
+	private async processQueue(): Promise<void> {
+		console.log('processQueue');
+
+		if (this.isProcessingQueue || this.tweetQueue.length === 0) return;
+
+		this.isProcessingQueue = true;
+		let processedCount = 0;
+
+		console.log(this.tweetQueue.length);
+		console.log(processedCount);
+
+		try {
+			while (this.tweetQueue.length > 0 && processedCount < POST_CONFIG.MAX_POSTS_PER_BATCH) {
+				const tweet = this.tweetQueue.shift();
+				if (!tweet) break;
+
+				try {
+					await this.postToTwitter(tweet.text);
+					processedCount++;
+
+					if (this.tweetQueue.length > 0) {
+						await new Promise(resolve => setTimeout(resolve, this.getRandomDelay()));
+					}
+				} catch (error) {
+					elizaLogger.error(`Error posting tweet for ${tweet.address}:`, error);
+					// On error, put the tweet back in queue for retry
+					this.tweetQueue.push(tweet);
+					// Wait longer before continuing
+					await new Promise(resolve => setTimeout(resolve, POST_CONFIG.MAX_DELAY * 2));
+				}
+			}
+		} finally {
+			this.isProcessingQueue = false;
+
+			if (this.tweetQueue.length > 0) {
+				setTimeout(() => this.processQueue(), this.getRandomDelay());
+			}
+		}
+	}
+
 	private async startMonitoring(): Promise<void> {
 		try {
 			const blockchains = [Blockchain.ETHEREUM, Blockchain.BASE];
@@ -74,6 +129,7 @@ export class UniswapActivityMonitorService extends Service {
 					elizaLogger.error('Error in activity check:', error);
 				}
 			}, CHECK_INTERVAL);
+
 		} catch (error) {
 			elizaLogger.error('Error in initial activity check:', error);
 		}
@@ -84,6 +140,8 @@ export class UniswapActivityMonitorService extends Service {
 			clearInterval(this.checkInterval);
 			this.checkInterval = null;
 		}
+		this.tweetQueue = [];
+		this.isProcessingQueue = false;
 	}
 
 	private async isAlreadyPosted(address: string, blockchain: Blockchain): Promise<boolean> {
@@ -101,18 +159,29 @@ export class UniswapActivityMonitorService extends Service {
 		const table = `${blockchain}_posted_uniswap_activity`;
 		const db = this.runtime.databaseAdapter as PostgresDatabaseAdapter;
 
-		await db.query(`
+		try {
+			await db.query(`
             INSERT INTO ${table} 
                 (address, protocol, token0, token1, trade_count, fee)
             VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (address) DO UPDATE SET
+                protocol = EXCLUDED.protocol,
+                token0 = EXCLUDED.token0,
+                token1 = EXCLUDED.token1,
+                trade_count = EXCLUDED.trade_count,
+                fee = EXCLUDED.fee
         `, [
-			address,
-			protocol,
-			activity.token0,
-			activity.token1,
-			activity.total_swaps,
-			'fee' in activity ? activity.fee : null
-		]);
+				address,
+				protocol,
+				activity.token0,
+				activity.token1,
+				activity.total_swaps,
+				'fee' in activity ? activity.fee : null
+			]);
+		} catch (error) {
+			elizaLogger.warn(`Failed to mark address ${address} as posted:`, error);
+			// Continue execution even if marking as posted fails
+		}
 	}
 
 	private async formatTweetText(activity: PairActivity | PoolActivity, protocol: 'v2' | 'v3', blockchain: Blockchain): Promise<string> {
@@ -137,6 +206,7 @@ export class UniswapActivityMonitorService extends Service {
         - Don't mention pool/pair address
         - Always show blockchain name starting with a capital letter
         - Always Include a link to the Uniswap pool/pair
+        - Try to avoid duplications in next messages
         - Example of the link https://app.uniswap.org/explore/pools/ethereum/0xbaa20e295f153a9681fec8de1e88c2448a34320b , where the last part is the address of the pool, and ethereum is the blockchain.`;
 
 			const tweet = await generateText({
@@ -146,7 +216,6 @@ export class UniswapActivityMonitorService extends Service {
 				stop: ['\n']
 			});
 
-			// Ensure the tweet is within 280 characters
 			return tweet.length > 280 ? tweet.slice(0, 277) + '...' : tweet;
 		} catch (error) {
 			elizaLogger.error(`Error generating tweet: ${error}`);
@@ -200,12 +269,10 @@ export class UniswapActivityMonitorService extends Service {
 				if (pair.total_swaps >= MIN_TRADE_COUNT && !(await this.isAlreadyPosted(pair.pair_address, blockchain))) {
 					try {
 						const tweetText = await this.formatTweetText(pair, 'v2', blockchain);
-						await this.postToTwitter(tweetText);
+						this.tweetQueue.push({ text: tweetText, address: pair.pair_address });
 						await this.markAsPosted(pair.pair_address, pair, 'v2', blockchain);
-
-						await new Promise(resolve => setTimeout(resolve, 2000));
 					} catch (error) {
-						elizaLogger.error(`Error posting V2 pair ${pair.pair_address}:`, error);
+						elizaLogger.error(`Error processing V2 pair ${pair.pair_address}:`, error);
 					}
 				}
 			}
@@ -214,21 +281,16 @@ export class UniswapActivityMonitorService extends Service {
 				if (pool.total_swaps >= MIN_TRADE_COUNT && !(await this.isAlreadyPosted(pool.pool_address, blockchain))) {
 					try {
 						const tweetText = await this.formatTweetText(pool, 'v3', blockchain);
-						await this.postToTwitter(tweetText);
+						this.tweetQueue.push({ text: tweetText, address: pool.pool_address });
 						await this.markAsPosted(pool.pool_address, pool, 'v3', blockchain);
-
-						await new Promise(resolve => setTimeout(resolve, 2000));
 					} catch (error) {
-						elizaLogger.error(`Error posting V3 pool ${pool.pool_address}:`, error);
+						elizaLogger.error(`Error processing V3 pool ${pool.pool_address}:`, error);
 					}
 				}
 			}
 
-			const newV2Count = v2Pairs.filter(p => p.total_swaps >= MIN_TRADE_COUNT).length;
-			const newV3Count = v3Pools.filter(p => p.total_swaps >= MIN_TRADE_COUNT).length;
-
-			if (newV2Count > 0 || newV3Count > 0) {
-				elizaLogger.info(`Found ${newV2Count} new active V2 pairs and ${newV3Count} new active V3 pools`);
+			if (!this.isProcessingQueue && this.tweetQueue.length > 0) {
+				await this.processQueue();
 			}
 		} catch (error) {
 			elizaLogger.error('Error in checkAndReport:', error);

@@ -19,11 +19,11 @@ const MIGRATIONS =[
   ethereumUniswapV2SwapsMigration,
   ethereumUniswapV3PoolsMigration,
   ethereumUniswapV3SwapsMigration,
-  ethereumPostedUniswapActivityMigration,
   baseUniswapV2PairsMigration,
   baseUniswapV2SwapsMigration,
   baseUniswapV3PoolsMigration,
   baseUniswapV3SwapsMigration,
+  ethereumPostedUniswapActivityMigration,
   basePostedUniswapActivityMigration,
 ];
 

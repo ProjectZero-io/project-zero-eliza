@@ -10,7 +10,7 @@ const formatPools = (pools: PoolCreation[]): string => {
 📊 Tick Spacing: ${pool.tickSpacing}
 🔢 Block: ${pool.blockNumber}
 🔗 Tx: ${pool.transactionHash}
-⏰ Created: ${new Date(pool.blockTimestamp).toLocaleString()}
+⏰ Created: ${pool.blockTimestamp.toLocaleString()}
 	`.trim()).join('\n\n');
 
 	return `Latest Uniswap V3 Pools:\n\n${formattedPools}`;

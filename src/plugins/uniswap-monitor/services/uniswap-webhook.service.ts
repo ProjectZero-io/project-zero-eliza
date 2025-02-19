@@ -61,12 +61,6 @@ export class UniswapWebhookService extends Service {
 					await this.processBlockData(blockData);
 				}
 
-				const v2Pairs = body.data.reduce((acc, block) => acc + block.uniswapV2.pairCreations.length, 0);
-				const v3Pools = body.data.reduce((acc, block) => acc + block.uniswapV3.poolCreations.length, 0);
-				const v2Swaps = body.data.reduce((acc, block) => acc + block.uniswapV2.swaps.length, 0);
-				const v3Swaps = body.data.reduce((acc, block) => acc + block.uniswapV3.swaps.length, 0);
-				elizaLogger.info(`Processed ${body.data.length} blocks. V2 Pairs: ${v2Pairs}, V3 Pools: ${v3Pools}, V2 Swaps: ${v2Swaps}, V3 Swaps: ${v3Swaps}`);
-
 				res.status(200).send('ok');
 			} catch (error) {
 				elizaLogger.error('Error processing webhook', error);
@@ -132,7 +126,7 @@ export class UniswapWebhookService extends Service {
 				pair.token0,
 				pair.token1,
 				pair.blockNumber,
-				new Date(pair.blockTimestamp * 1000).toISOString(),
+				new Date(pair.blockTimestamp * 1000),
 				pair.transactionHash
 			]);
 		}
@@ -155,7 +149,7 @@ export class UniswapWebhookService extends Service {
 				pool.fee,
 				pool.tickSpacing,
 				pool.blockNumber,
-				new Date(pool.blockTimestamp * 1000).toISOString(),
+				new Date(pool.blockTimestamp * 1000),
 				pool.transactionHash
 			]);
 		}
