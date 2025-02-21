@@ -73,15 +73,10 @@ export class UniswapActivityMonitorService extends Service {
 	}
 
 	private async processQueue(): Promise<void> {
-		console.log('processQueue');
-
 		if (this.isProcessingQueue || this.tweetQueue.length === 0) return;
 
 		this.isProcessingQueue = true;
 		let processedCount = 0;
-
-		console.log(this.tweetQueue.length);
-		console.log(processedCount);
 
 		try {
 			while (this.tweetQueue.length > 0 && processedCount < POST_CONFIG.MAX_POSTS_PER_BATCH) {
