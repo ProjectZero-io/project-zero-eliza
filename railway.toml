@@ -8,3 +8,11 @@ restartPolicyType = "ON_FAILURE"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyMaxRetries = 10
+
+[[ports]]
+port = "3000"
+internalPort = "3000"
+
+[[ports]]
+port = "3030"
+internalPort = "3030"
