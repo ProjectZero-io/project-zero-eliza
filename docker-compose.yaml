@@ -1,8 +1,12 @@
+version: '3.8'
+
 services:
     postgres:
         image: postgres:15
         environment:
-            - POSTGRES_URL=${POSTGRES_URL}
+            - POSTGRES_DB=postgres
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=password
         volumes:
             - postgres_data:/var/lib/postgresql/data
         ports:
@@ -10,28 +14,26 @@ services:
         networks:
             - eliza-network
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready"]
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
             interval: 5s
             timeout: 5s
             retries: 5
 
     eliza:
-        command: ["pnpm", "start", "--character=./characters/eliza.character.json"]
         build:
             context: .
             dockerfile: Dockerfile
-        stdin_open: true
-        tty: true
-        volumes:
-            - ./data:/app/data
+        command: ["pnpm", "start", "--character=./characters/eliza.character.json"]
         environment:
-            - POSTGRES_URL=${POSTGRES_URL}
+            - POSTGRES_URL=postgres://postgres:password@postgres:5432/postgres
             - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
             - SERVER_PORT=3000
             - TWITTER_USERNAME=${TWITTER_USERNAME}
             - TWITTER_PASSWORD=${TWITTER_PASSWORD}
             - TWITTER_EMAIL=${TWITTER_EMAIL}
             - DAEMON_PROCESS=true
+        volumes:
+            - ./data:/app/data
         ports:
             - "3000:3000"
         depends_on:
@@ -45,7 +47,7 @@ services:
         build:
             context: ./webhook
         environment:
-            - POSTGRES_URL=${POSTGRES_URL}
+            - POSTGRES_URL=postgres://postgres:password@postgres:5432/postgres
             - SERVER_PORT=3030
         ports:
             - "3030:3030"
