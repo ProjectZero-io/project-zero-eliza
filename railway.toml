@@ -5,9 +5,6 @@ dockerfilePath = "Dockerfile"
 [deploy]
 startCommand = "pnpm start --character=./characters/eliza.character.json"
 restartPolicyType = "ON_FAILURE"
-healthcheckPath = "/health"
-healthcheckTimeout = 300
-restartPolicyMaxRetries = 10
 
 [[ports]]
 port = "3000"
